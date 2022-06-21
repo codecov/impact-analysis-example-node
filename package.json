@@ -1,0 +1,25 @@
+{
+  "name": "example-app",
+  "version": "0.0.1",
+  "description": "Example App for Impact Analysis using NodeJS",
+  "main": "app.js",
+  "directories": {
+    "example": "example"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/codecov/impact-analysis-example-node.git"
+  },
+  "author": "Codecov",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/codecov/impact-analysis-example-node/issues"
+  },
+  "homepage": "https://github.com/codecov/impact-analysis-example-node#readme",
+  "dependencies": {
+    "express": "^4.18.1"
+  }
+}
