@@ -1,8 +1,15 @@
 // Include Dependencies
 const { CodeCovOpenTelemetry }  = require('@codecov/node-codecov-opentelemetry');
 const { NodeTracerProvider } = require('@opentelemetry/sdk-trace-node');
-const { BatchSpanProcessor } = require("@opentelemetry/sdk-trace-base");
+const { SimpleSpanProcessor, BatchSpanProcessor } = require("@opentelemetry/sdk-trace-base");
 const { SpanKind } = require("@opentelemetry/api");
+
+const process = require('process');
+const opentelemetry = require('@opentelemetry/sdk-node');
+const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');
+const { ConsoleSpanExporter } = require('@opentelemetry/sdk-trace-base');
+const { Resource } = require('@opentelemetry/resources');
+const { SemanticResourceAttributes } = require('@opentelemetry/semantic-conventions');
 
 // Setup OpenTelemetry
 const sampleRate = 1; //sample all spans, in most production contexts 0.1 makes more sense.
@@ -10,9 +17,10 @@ const untrackedExportRate = 1;
 const version = "0.0.0";
 const environment = "development";
 const code = environment +  "::" + version; //<environment>::<versionIdentifier>
+const { diag, DiagConsoleLogger, DiagLogLevel } = require('@opentelemetry/api');
 
-const provider = new NodeTracerProvider();
-provider.register();
+// For troubleshooting, set the log level to DiagLogLevel.DEBUG
+diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.INFO);
 
 // Setup Codecov OTEL
 const codecov = new CodeCovOpenTelemetry(
@@ -30,8 +38,34 @@ const codecov = new CodeCovOpenTelemetry(
   }
 )
 
+const provider = new NodeTracerProvider();
+provider.register();
 provider.addSpanProcessor(codecov.processor);
-provider.addSpanProcessor(new BatchSpanProcessor(codecov.exporter))
+provider.addSpanProcessor(new BatchSpanProcessor(codecov.exporter));
+provider.addSpanProcessor(new SimpleSpanProcessor(new opentelemetry.tracing.ConsoleSpanExporter()));
+
+const sdk = new opentelemetry.NodeSDK({
+  resource: new Resource({
+    [SemanticResourceAttributes.SERVICE_NAME]: 'codecov',
+  }),
+  // spanProcessor: provider,
+  traceExporter: new opentelemetry.tracing.ConsoleSpanExporter(),
+  instrumentations: [getNodeAutoInstrumentations()]
+});
+
+// initialize the SDK and register with the OpenTelemetry API
+// this enables the API to record telemetry
+sdk.start()
+  .then(() => console.log('Tracing initialized'))
+  .catch((error) => console.log('Error initializing tracing', error));
+
+// gracefully shut down the SDK on process exit
+process.on('SIGTERM', () => {
+  sdk.shutdown()
+    .then(() => console.log('Tracing terminated'))
+    .catch((error) => console.log('Error terminating tracing', error))
+    .finally(() => process.exit(0));
+});
 
 const express = require('express')
 const app = express()
